@@ -198,36 +198,11 @@ static void UserApp1SM_AntChannelAssign()
 /* Wait for ??? */
 static void UserApp1SM_Idle(void)
 {
-  static u8 au8TestMessage[] = {0, 0, 0, 0, 0xA5, 0, 0, 0};
+   static u8 au8TestMessage[] = {0x5B, 0, 0, 0, 0xFF, 0, 0, 0};
+  static u8 au8Display[4] = {0,0,0,0};
   u8 au8DataContent[] = "xxxxxxxxxxxxxxxx";
-  
-  /* Check all the buttons and update au8TestMessage according to the button state */ 
-  au8TestMessage[0] = 0x00;
-  if( IsButtonPressed(BUTTON0) )
-  {
-    au8TestMessage[0] = 0xff;
-  }
-  
-  au8TestMessage[1] = 0x00;
-  if( IsButtonPressed(BUTTON1) )
-  {
-    au8TestMessage[1] = 0xff;
-  }
-
-#ifdef EIE1
-  au8TestMessage[2] = 0x00;
-  if( IsButtonPressed(BUTTON2) )
-  {
-    au8TestMessage[2] = 0xff;
-  }
-
-  au8TestMessage[3] = 0x00;
-  if( IsButtonPressed(BUTTON3) )
-  {
-    au8TestMessage[3] = 0xff;
-  }
-#endif /* EIE1 */
-  
+  u8 u8LastState = 0xFF;
+ 
   if( AntReadAppMessageBuffer() )
   {
      /* New message from ANT task: check what it is */
@@ -250,7 +225,9 @@ static void UserApp1SM_Idle(void)
     }
     else if(G_eAntApiCurrentMessageClass == ANT_TICK)
     {
+      u8LastState = G_au8AntApiCurrentMessageBytes[ANT_TICK_MSG_EVENT_CODE_INDEX];
      /* Update and queue the new message data */
+    
       au8TestMessage[7]++;
       if(au8TestMessage[7] == 0)
       {
@@ -260,7 +237,36 @@ static void UserApp1SM_Idle(void)
           au8TestMessage[5]++;
         }
       }
-      AntQueueBroadcastMessage(ANT_CHANNEL_USERAPP, au8TestMessage);
+    
+    
+      if(u8LastState == EVENT_TRANSFER_TX_FAILED)
+      {
+        au8TestMessage[3]++;
+        if(au8TestMessage[3] == 0)
+        {
+          au8TestMessage[2]++;
+          if(au8TestMessage[2] == 0)
+          {
+            au8TestMessage[1]++;
+          }
+        }
+      }
+      
+      AntQueueAcknowledgedMessage(ANT_CHANNEL_USERAPP, au8TestMessage);
+      
+      for(u8 i = 0; i < 3; i++)
+      {
+        au8Display[2 * i]     = HexToASCIICharUpper(au8TestMessage[i+1] / 16);
+        au8Display[2 * i + 1] = HexToASCIICharUpper(au8TestMessage[i+1] % 16);
+      }
+      LCDMessage(LINE1_START_ADDR, au8Display);
+      
+      for(u8 i = 0; i < 3; i++)
+      {
+        au8Display[2 * i]     = HexToASCIICharUpper(au8TestMessage[i+1] / 16);
+        au8Display[2 * i + 1] = HexToASCIICharUpper(au8TestMessage[i+1] % 16);
+      }
+      LCDMessage(LINE2_START_ADDR, au8Display);
     }
   } /* end AntReadData() */
   
